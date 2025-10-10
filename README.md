@@ -61,7 +61,7 @@ I created my own **Mistral API key** for this project.
 Before running the server, set your API key in the terminal:
 
 ```bash
-export MISTRAL_API_KEY=j4cXZVb6gL6jJoBdAwRdLkmWX0vEwYU3
+export MISTRAL_API_KEY=your_key_here
 ```
 
 ### **Verify the Key**
