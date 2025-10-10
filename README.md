@@ -102,3 +102,25 @@ It combines **semantic** and **keyword-based** matching to ensure accurate, cont
   - `combined_score` → weighted score (0.6 × semantic + 0.4 × keyword)  
 - Chunks are ranked by combined score, and only those above a confidence threshold are kept.  
 - If no chunk passes the threshold, the system returns **“insufficient evidence.”**
+
+
+## **4. Post-Processing**
+
+This step refines the retrieved chunks by **merging**, **re-ranking**, and **filtering** results to ensure only the most relevant, diverse, and evidence-backed context is used for answer generation.  
+It improves retrieval performance and reduces redundancy before passing data to the language model.
+
+---
+
+### **What It Does**
+
+- **Merges and re-ranks results** using:
+  - **Reciprocal Rank Fusion (RRF):** balances both semantic and keyword rankings.  
+  - **Maximum Marginal Relevance (MMR):** ensures diversity by penalizing redundant chunks.  
+- **Stitches adjacent chunks** for smoother context continuity.  
+- **Applies evidence thresholding** — if top results don’t meet a confidence score, the system returns  
+  `"insufficient evidence"` instead of hallucinating an answer.  
+- **Preserves detailed retrieval metrics** in the final output:
+  - `semantic_score` → contextual similarity  
+  - `keyword_score` → keyword overlap  
+  - `combined_score` → hybrid weighted score  
+  - `rrf` → rank fusion score
