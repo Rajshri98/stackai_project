@@ -94,20 +94,32 @@ def gather_context(chunks: List[str], results: List[Dict], threshold=0.05, top_k
 
     return "\n\n".join(context), cites
 
-#Call Mistral LLM
+# Generation: Call Mistral LLM
 def call_mistral(prompt: str) -> str:
     api_key = os.getenv("MISTRAL_API_KEY", "")
     if not api_key:
         return "Mistral API key missing."
+
     url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    data = {"model": "mistral-small-latest",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.2}
-    r = requests.post(url, headers=headers, json=data, timeout=30)
-    r.raise_for_status()
-    j = r.json()
-    return j["choices"][0]["message"]["content"].strip()
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "mistral-small-latest",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=25)
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"].strip()
+    except requests.exceptions.RequestException as e:
+        return f"Error communicating with Mistral API: {e}"
+    except (KeyError, IndexError):
+        return "Unexpected response from Mistral API."
 
 
 # Post-processing: merge + re-rank

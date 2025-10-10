@@ -124,3 +124,31 @@ It improves retrieval performance and reduces redundancy before passing data to 
   - `keyword_score` → keyword overlap  
   - `combined_score` → hybrid weighted score  
   - `rrf` → rank fusion score
+  
+
+  ## **5. Generation**
+
+This step uses the **Mistral AI** language model to generate grounded, evidence-based answers from the retrieved context.
+
+---
+
+### **What It Does**
+
+- Builds a structured prompt combining the user’s question and the top-ranked context chunks.
+- Calls the Mistral API (`mistral-small-latest`) to generate concise answers strictly based on that context.
+- Enforces safety through:
+  - **Evidence check:** Returns “insufficient evidence” if context lacks support.
+  - **Hallucination filter:** Flags unsupported claims (e.g., random URLs or figures).
+- Preserves citation details (`CHUNK IDs`) for full transparency.
+
+---
+
+### **Example Output**
+```json
+{
+  "intent": "kb",
+  "answer": "Overfitting occurs when...",
+  "citations": [
+    {"chunk": 23, "semantic_score": 0.135, "keyword_score": 0.025, "combined_score": 0.091, "rrf": 0.030}
+  ]
+}
