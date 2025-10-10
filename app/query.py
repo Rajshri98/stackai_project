@@ -4,7 +4,7 @@ import os, re, json, math, requests
 from collections import Counter
 from typing import List, Dict
 from app.store import load_chunks
-
+from settings import MISTRAL_API_KEY
 # Detect intent
 def needs_search(query: str) -> bool:
     """
@@ -96,7 +96,7 @@ def gather_context(chunks: List[str], results: List[Dict], threshold=0.05, top_k
 
 # Generation: Call Mistral LLM
 def call_mistral(prompt: str) -> str:
-    api_key = os.getenv("MISTRAL_API_KEY", "")
+    api_key = MISTRAL_API_KEY
     if not api_key:
         return "Mistral API key missing."
 
@@ -203,7 +203,6 @@ def postprocess_results(query_tokens: List[str], chunks: List[str], results: Lis
     return stitched, cites
 
 
-#Full pipeline
 def answer_query(user_query: str) -> Dict:
     if not needs_search(user_query):
         return {"intent": "non_info", "answer": "Hi! Please ask a question about your uploaded files."}
@@ -227,7 +226,7 @@ def answer_query(user_query: str) -> Dict:
     )
 
     answer = call_mistral(prompt)
-    # simple hallucination check: does answer mention any unknown facts?
+    # hallucination check: does answer mention any unknown facts?
     if "insufficient evidence" not in answer.lower():
         for w in ["http", "image", "table", "source"]:
             if w in answer.lower() and w not in context.lower():

@@ -1,11 +1,11 @@
 #Handles routes
 
 #Import libraries
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from typing import List
 from app.ingestion import process_pdfs
 from app.query import answer_query
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 app = FastAPI()
 
@@ -23,4 +23,9 @@ class QueryInput(BaseModel):
 
 @app.post("/query")
 def query(payload: QueryInput):
-    return answer_query(payload.query)
+    try:
+        if not payload.query or not payload.query.strip():
+            raise HTTPException(status_code=400, detail="Query cannot be empty")
+        return answer_query(payload.query)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")

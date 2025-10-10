@@ -124,7 +124,7 @@ It improves retrieval performance and reduces redundancy before passing data to 
   - `keyword_score` → keyword overlap  
   - `combined_score` → hybrid weighted score  
   - `rrf` → rank fusion score
-  
+
 
   ## **5. Generation**
 
