@@ -26,20 +26,23 @@ def transform_query(query: str) -> str:
     q = re.sub(r"\bhow\s+to\b", "steps to", q)
     return q.strip()
 
-#TF-IDF scoring
+# Hybrid Semantic + Keyword Search
 def compute_scores(query_tokens: List[str], docs: List[str]) -> List[Dict]:
     """
-    Computes a basic hybrid score = lexical_overlap + tf-idf cosine
+    Combines lexical (keyword) and semantic similarity using TF-IDF-style weighting.
+    Returns ranked document chunks with combined scores.
     """
     N = len(docs)
     df = {}
     doc_tokens = [normalize(d) for d in docs]
+
+    # Document Frequency
     for toks in doc_tokens:
         for w in set(toks):
             df[w] = df.get(w, 0) + 1
     idf = {w: math.log((N + 1) / (df[w] + 1)) for w in df}
 
-    # Build query vector
+    # Build query vector (TF-IDF)
     q_tf = Counter(query_tokens)
     q_vec = {w: (1 + math.log(c)) * idf.get(w, 0) for w, c in q_tf.items()}
     q_norm = math.sqrt(sum(v * v for v in q_vec.values())) or 1.0
@@ -52,23 +55,41 @@ def compute_scores(query_tokens: List[str], docs: List[str]) -> List[Dict]:
         norm = math.sqrt(sum(v * v for v in vec.values())) or 1.0
         vec = {k: v / norm for k, v in vec.items()}
 
-        # cosine
-        cos = sum(q_vec.get(w, 0) * vec.get(w, 0) for w in q_vec)
-        # lexical overlap (Jaccard)
+        # Semantic similarity (cosine between TF-IDF vectors)
+        cosine_sim = sum(q_vec.get(w, 0) * vec.get(w, 0) for w in q_vec)
+
+        # Lexical overlap (Jaccard index)
         overlap = len(set(query_tokens) & set(toks)) / (len(set(query_tokens) | set(toks)) or 1)
-        score = 0.7 * cos + 0.3 * overlap
-        results.append({"idx": idx, "score": score})
+
+        # Combine scores with tunable weights
+        combined_score = 0.6 * cosine_sim + 0.4 * overlap
+
+        results.append({
+            "idx": idx,
+            "semantic_score": round(cosine_sim, 4),
+            "keyword_score": round(overlap, 4),
+            "score": round(combined_score, 4)
+        })
+
     return sorted(results, key=lambda x: x["score"], reverse=True)
 
 #Evidence threshold + citations
 def gather_context(chunks: List[str], results: List[Dict], threshold=0.05, top_k=4):
     if not results or results[0]["score"] < threshold:
         return None, []
+
     context = []
     cites = []
+
     for r in results[:top_k]:
         context.append(f"[CHUNK {r['idx']}] {chunks[r['idx']]}")
-        cites.append({"chunk": r["idx"], "score": round(r["score"], 3)})
+        cites.append({
+            "chunk": r["idx"],
+            "semantic_score": round(r.get("semantic_score", 0), 3),
+            "keyword_score": round(r.get("keyword_score", 0), 3),
+            "combined_score": round(r.get("score", 0), 3)
+        })
+
     return "\n\n".join(context), cites
 
 #Call Mistral LLM

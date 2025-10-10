@@ -83,3 +83,22 @@ Open the **Swagger UI** at:
 
 Test the **`/query`** endpoint by entering a question after uploading PDFs.
 ```
+
+## **3. Semantic Search**
+
+This step designs the retrieval mechanism that searches the ingested PDF chunks using the processed query.  
+It combines **semantic** and **keyword-based** matching to ensure accurate, context-aware retrieval of relevant text.
+
+---
+
+### **What It Does**
+
+- Performs a **hybrid search** that blends:
+  - **Semantic similarity (TF-IDF cosine)** — captures meaning and context.  
+  - **Keyword overlap (Jaccard index)** — ensures exact term matching.  
+- Each document chunk receives:
+  - `semantic_score` → contextual similarity  
+  - `keyword_score` → keyword overlap  
+  - `combined_score` → weighted score (0.6 × semantic + 0.4 × keyword)  
+- Chunks are ranked by combined score, and only those above a confidence threshold are kept.  
+- If no chunk passes the threshold, the system returns **“insufficient evidence.”**
