@@ -2,15 +2,25 @@
 
 #Import libraries
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from typing import List
 from app.ingestion import process_pdfs
 from app.query import answer_query
 from pydantic import BaseModel, ValidationError
+import os
 
 app = FastAPI()
 
+# Serve static files
+app.mount("/static", StaticFiles(directory="UI/static"), name="static")
+
 @app.get("/")
 def home():
+    return FileResponse("UI/static/index.html")
+
+@app.get("/api")
+def api_home():
     return {"message": "Server running! Use /ingest to upload PDFs."}
 
 @app.post("/ingest")

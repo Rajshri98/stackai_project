@@ -117,6 +117,8 @@ def call_mistral(prompt: str) -> str:
         data = response.json()
         return data["choices"][0]["message"]["content"].strip()
     except requests.exceptions.RequestException as e:
+        if "429" in str(e):
+            return "API_RATE_LIMIT_ERROR"
         return f"Error communicating with Mistral API: {e}"
     except (KeyError, IndexError):
         return "Unexpected response from Mistral API."
@@ -226,6 +228,11 @@ def answer_query(user_query: str) -> Dict:
     )
 
     answer = call_mistral(prompt)
+    
+    # Check for API errors
+    if answer == "API_RATE_LIMIT_ERROR":
+        return {"intent": "error", "answer": "Sorry, the AI service is currently experiencing high demand. Please try again in a few minutes.", "citations": citations}
+    
     # hallucination check: does answer mention any unknown facts?
     if "insufficient evidence" not in answer.lower():
         for w in ["http", "image", "table", "source"]:
