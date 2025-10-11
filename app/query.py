@@ -204,10 +204,28 @@ def postprocess_results(query_tokens: List[str], chunks: List[str], results: Lis
         return None, []
     return stitched, cites
 
+def policy_check(query: str) -> (bool, str):
+    q = query.lower()
+
+    if any(k in q for k in ["ssn", "social security", "passport number", "credit card", "cvv"]):
+        return False, "Sorry — I can’t help extract or reveal sensitive personal identifiers."
+
+    if any(k in q for k in ["diagnose", "medical advice", "treatment", "pill", "dosage", "symptom"]):
+        return True, "Medical disclaimer: I’m not a healthcare professional. This information is for educational purposes only."
+
+    if any(k in q for k in ["sue", "lawsuit", "legal advice", "contract clause", "liable", "liability"]):
+        return True, "Legal disclaimer: I’m not a lawyer. This information is for educational purposes only."
+
+    return True, ""
 
 def answer_query(user_query: str) -> Dict:
     if not needs_search(user_query):
         return {"intent": "non_info", "answer": "Hi! Please ask a question about your uploaded files."}
+
+    # ---- Policy Check (PII, Legal, Medical) ----
+    allowed, policy_msg = policy_check(user_query)
+    if not allowed:
+        return {"intent": "policy_refusal", "answer": policy_msg}
 
     chunks = load_chunks()
     if not chunks:
@@ -228,15 +246,24 @@ def answer_query(user_query: str) -> Dict:
     )
 
     answer = call_mistral(prompt)
-    
+
+    # Attach disclaimer if applicable
+    if policy_msg:
+        answer = policy_msg + "\n\n" + answer
+
     # Check for API errors
     if answer == "API_RATE_LIMIT_ERROR":
-        return {"intent": "error", "answer": "Sorry, the AI service is currently experiencing high demand. Please try again in a few minutes.", "citations": citations}
-    
-    # hallucination check: does answer mention any unknown facts?
+        return {
+            "intent": "error",
+            "answer": "Sorry, the AI service is currently experiencing high demand. Please try again in a few minutes.",
+            "citations": citations
+        }
+
+    # Hallucination check
     if "insufficient evidence" not in answer.lower():
         for w in ["http", "image", "table", "source"]:
             if w in answer.lower() and w not in context.lower():
                 answer += "\n\n(Note: possible unsupported claim detected.)"
 
     return {"intent": "kb", "answer": answer, "citations": citations}
+
