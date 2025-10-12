@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StackAI Chatbot</title>
+    <link rel="stylesheet" href="/static/style.css?v=3">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <style>
+        /* Minimal inline safety to avoid FOUC while style.css loads */
+        body{visibility:visible}
+    </style>
+</head>
+<body>
+    <!-- Floating decorative elements -->
+    <div class="floating-elements">
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <div class="orbiting-circle"></div>
+        <div class="orbiting-circle"></div>
+        <div class="orbiting-circle"></div>
+        <div class="glowing-dot"></div>
+        <div class="glowing-dot"></div>
+        <div class="glowing-dot"></div>
+        <div class="glowing-dot"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <button class="theme-toggle" aria-label="Toggle theme">Dark</button>
+            <div class="logo">
+                <div class="logo-icon">S</div>
+                <div class="logo-text">StackAI Chatbot</div>
+            </div>
+            <p class="subtitle">Intelligent document analysis and conversational interface</p>
+        </div>
+
+        <div class="main-layout">
+            <div class="upload-section">
+                <div class="section-header">
+                    <h2 class="section-title">Upload Documents</h2>
+                    <p class="section-description">Upload PDF files to analyze and make them searchable</p>
+                </div>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">PDF</div>
+                    <p class="upload-text">Click to upload or drag & drop PDF files</p>
+                    <input type="file" id="fileInput" class="file-input" multiple accept="application/pdf">
+                    <!-- Keep existing JS expectation: .upload-btn class -->
+                    <button class="btn upload-btn" type="button">Upload Files</button>
+                </div>
+                
+                <div id="uploadStatus"></div>
+                <div id="fileInfo" class="file-info"></div>
+
+                <!-- Progress Bar used by existing JS -->
+                <div class="progress-container">
+                    <div class="progress-bar"></div>
+                    <div class="progress-text">Processing...</div>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <div class="section-header">
+                    <h2 class="section-title">Quick Actions</h2>
+                    <p class="section-description">Common queries to get started</p>
+                </div>
+                
+                <div class="quick-actions-grid">
+                    <div class="quick-action" data-question="What is this document about?">
+                        <div class="quick-action-title">Summarize Document</div>
+                        <div class="quick-action-description">Get a comprehensive overview of the main topics</div>
+                    </div>
+                    <div class="quick-action" data-question="What are the key points?">
+                        <div class="quick-action-title">Key Points</div>
+                        <div class="quick-action-description">Extract the most important information</div>
+                    </div>
+                    <div class="quick-action" data-question="What questions can I ask about this document?">
+                        <div class="quick-action-title">Suggested Questions</div>
+                        <div class="quick-action-description">Discover what you can ask about the content</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat section; also add .chat-interface class to satisfy existing JS -->
+        <div class="chat-section chat-interface" id="chatInterface">
+            <div class="section-header">
+                <h2 class="section-title">Chat with Documents</h2>
+                <p class="section-description">Ask questions about your uploaded documents</p>
+            </div>
+            
+            <div class="input-group">
+                <input type="text" id="queryInput" class="input-field" placeholder="Ask anything about your documents...">
+                <button class="btn" id="sendBtn" type="button">Ask</button>
+            </div>
+            
+            <div id="chatMessages" class="chat-messages">
+                <div class="message assistant">
+                    Welcome to StackAI Chatbot. Upload your PDF documents and start asking questions. I'll help you analyze and understand your content with intelligent responses.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js?v=3"></script>
+</body>
+</html>

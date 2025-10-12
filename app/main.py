@@ -1,6 +1,6 @@
-#Handles routes
+# FastAPI application: static hosting, PDF ingestion, and query endpoint
 
-#Import libraries
+# Imports
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -12,12 +12,12 @@ import os
 
 app = FastAPI()
 
-# Serve static files
-app.mount("/static", StaticFiles(directory="UI/static"), name="static")
+# Serve static assets for the frontend UI
+app.mount("/static", StaticFiles(directory="Frontend/static"), name="static")
 
 @app.get("/")
 def home():
-    return FileResponse("UI/static/index.html")
+    return FileResponse("Frontend/static/index.html")
 
 @app.get("/api")
 def api_home():
