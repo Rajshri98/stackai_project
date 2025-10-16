@@ -767,11 +767,9 @@ def answer_query(user_query: str) -> Dict:
         if not context:
             return {"status": "insufficient_evidence", "answer": "I don't have enough relevant data to answer confidently."}
 
-    # Guard: if the stitched context looks like a header/contact block and the
-    # user intent is not explicitly a list/comparison/timeline, provide guidance instead
+   
     guard_intent = intent_classifier.classify(user_query)
-    # Generic behavior: only trigger the header guard for greetings/clarifications or
-    # when the query contains no strong content tokens.
+  
     has_strong_tokens = len([t for t in normalize(user_query) if len(t) >= 4 and t not in _STOPWORDS]) > 0
     if _looks_like_header(context) and guard_intent in ("greeting", "clarification") and not has_strong_tokens:
         tips = [
@@ -783,8 +781,6 @@ def answer_query(user_query: str) -> Dict:
         msg = "I need a bit more detail. Try questions like:\n- " + "\n- ".join(tips)
         return {"intent": guard_intent, "answer": msg, "citations": []}
 
-    # If context exists but does not share content words with the query,
-    # return a clear "not mentioned" instead of summarizing.
     def _content_tokens_local(text: str) -> List[str]:
         return [t for t in normalize(text) if len(t) >= 3 and t not in _STOPWORDS]
     q_tokens_ctx = set(_content_tokens_local(user_query))
@@ -794,7 +790,7 @@ def answer_query(user_query: str) -> Dict:
 
     # Determine intent (guides formatting only)
     response_type = determine_response_type(user_query)
-    # Optionally refine response type with intent
+ 
     if intent_label == "list":
         response_type = "a bulleted list with clear, concise items"
     elif intent_label == "comparison":

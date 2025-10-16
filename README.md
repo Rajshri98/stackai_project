@@ -1,241 +1,321 @@
-# StackAI RAG Chatbot
+# RAG Backend System 
 
-A sophisticated Retrieval-Augmented Generation (RAG) system built with FastAPI, featuring advanced document processing, semantic search, and intelligent question answering capabilities.
+A Python backend for a Retrieval‑Augmented Generation (RAG) pipeline using FastAPI and the Mistral AI API. This project ingests PDF files, performs hybrid retrieval without external RAG frameworks or vector databases, and generates grounded answers with citations. The design emphasizes clarity, explicit tradeoffs, and from‑scratch retrieval components.
 
-## Features
+## System Design
 
-- **PDF Document Processing**: Extract and process text from PDF files using PyMuPDF
-- **Advanced RAG Pipeline**: Multi-stage retrieval with semantic and keyword-based search
-- **LLM Integration**: Mistral AI for intelligent answer generation
-- **Modern UI**: Beautiful, responsive interface with dark/light mode
-- **Real-time Chat**: Interactive document querying with citations
-- **Smart Chunking**: Character-based text chunking with overlap for context preservation
+This system enables you to upload PDF documents, query them in natural language, and receive answers supported by relevant chunks from those documents. It consists of:
 
-## Architecture
+1) Data Ingestion: PDF upload, text extraction, cleaning, chunking, embedding, and persistence
+2) Query Processing: intent detection and query transformation
+3) Semantic Search: hybrid matching combining semantic similarity and keyword overlap
+4) Reranking: multi‑stage filtering, diversity, and optional LLM‑based reranking
+5) Generation: prompt assembly and answer generation with citations
+6) UI: minimal, responsive interface for uploads and chat
+
+Each component below handles a distinct stage of the retrieval-augmented generation pipeline, ensuring modularity, clarity, and ease of testing.
+
+## Component Details
 
 ### 1. Data Ingestion
 
-This step sets up the backend that handles uploading and processing PDF files.  
-It's the foundation of the Retrieval-Augmented Generation (RAG) system, preparing clean, searchable text data for later query and generation stages.
+Files: `app/ingestion.py`, `app/utils_text.py`, `app/embeddings.py`, `app/store.py`
 
-#### What It Does
-- Upload one or more PDF files through the `/ingest` endpoint
-- Extract text from each file using **PyMuPDF**
-- Split long text into overlapping chunks to preserve context
-- Store all chunks locally in `data/chunks_metadata.json`
-- Generate and store vector embeddings in `data/vector_index.npy`
-- Return a JSON response with the total number of chunks created
+Flow:
+- Upload one or more PDF files to `POST /ingest` (see `app/main.py`).
+- Extract text using PyMuPDF (fitz).
+- Clean text by condensing whitespace for stable chunking (`clean_text`).
+- Chunk the document into overlapping character windows to preserve local context (`chunk_text`).
+- Fit custom embeddings and generate vectors (`EmbeddingGenerator`).
+- Persist:
+  - Chunks and metadata to `data/chunks_metadata.json`
+  - Embeddings as a NumPy array to `data/vector_index.npy`
 
-**Example Response:**
-```json
-{"status": "ok", "chunks_created": 5, "files_processed": 2, "embedding_dimension": 300}
-```
+Chunking considerations:
+- Character‑based chunking avoids dependency on model tokenizers and is robust to noisy PDF text.
+- Overlap reduces the risk of splitting related facts across boundaries.
+- Each chunk includes filename and positional metadata for traceability and citation.
 
 ### 2. Query Processing
 
-This step determines whether a user's question requires searching the uploaded PDFs and reformats it to improve retrieval accuracy.  
-It ensures only meaningful queries trigger document retrieval, while also improving how the query matches relevant text chunks.
+File: `app/query.py`
 
-#### What It Does
-- Detects whether the user's query should trigger a knowledge base search
-  - Example:
-    - "hello" or "thanks" → no search triggered
-    - "What is overfitting?" → search triggered
-- Transforms natural language queries into retrieval-friendly formats for better matching
-  - Example:
-    - "What is regression?" → "regression definition explanation"
-    - "How to train a model?" → "steps process for training a model"
-- Passes the processed query to the retrieval module for further search and generation
+Objectives:
+- Detect whether a query warrants knowledge‑base search (avoid searching on greetings or pleasantries).
+- Transform queries into retrieval‑friendly forms to improve recall.
 
-#### Endpoint
-`POST /query`
+Implemented elements:
+- Lightweight intent classifier with categories such as greeting, clarification, list, comparison, timeline, skills, experience, education, contact, kb.
+- Query normalization and pattern‑guided transformations (for example “what is X” becomes “X definition explanation information”).
 
-**Example Request:**
-```json
-{"query": "What is generalization in machine learning?"}
-```
+### 3. Semantic Search (Hybrid)
 
-**Example Response:**
-```json
-{
-  "intent": "kb",
-  "answer": "Generalization refers to how well a model performs on new, unseen data...",
-  "citations": [{"chunk": 25, "score": 0.12}]
-}
-```
+Files: `app/embeddings.py`, `app/query.py`
 
-### 3. Semantic Search
+Signals:
+- Semantic similarity via custom TF‑IDF features and lightweight word embeddings (cosine similarity).
+- Keyword evidence via token overlap and TF‑IDF features.
 
-This step designs the retrieval mechanism that searches the ingested PDF chunks using the processed query.  
-It combines **semantic** and **keyword-based** matching to ensure accurate, context-aware retrieval of relevant text.
+Combination:
+- A weighted hybrid score combines semantic and keyword evidence. Weights are configurable in `constants.py`.
+- The final retrieval score = α × semantic_similarity + (1 − α) × keyword_overlap, where α is configurable (default: 0.6 in constants.py).
 
-#### What It Does
+Storage model:
+- No external vector database. Embeddings are stored as a NumPy array on disk for simplicity and assignment compliance.
+- Embeddings are serialized with NumPy for fast disk I/O and deterministic retrieval between sessions.
 
-- Performs a **hybrid search** that blends:
-  - **Semantic similarity (TF-IDF cosine)** - captures meaning and context
-  - **Keyword overlap (Jaccard index)** - ensures exact term matching
-- Each document chunk receives:
-  - `semantic_score` → contextual similarity
-  - `keyword_score` → keyword overlap
-  - `combined_score` → weighted score (0.6 × semantic + 0.4 × keyword)
-- Chunks are ranked by combined score, and only those above a confidence threshold are kept
-- If no chunk passes the threshold, the system returns **"insufficient evidence"**
+### 4. Reranking and Post‑processing
 
-### 4. Post-Processing
+File: `app/query.py`, optional `app/reranker.py`
 
-This step refines the retrieved chunks by **merging**, **re-ranking**, and **filtering** results to ensure only the most relevant, diverse, and evidence-backed context is used for answer generation.  
-It improves retrieval performance and reduces redundancy before passing data to the language model.
+Multi‑stage strategy:
+- Retrieve broadly (configurable candidate count) to avoid early misses.
+- Post‑process with diversity‑aware selection to reduce redundancy.
+- Optional LLM‑based reranking (`LLMReranker`) to refine the final order under tight top‑k.
+- Evidence thresholding: if top results do not meet minimal support, respond with "insufficient evidence" guidance instead of hallucinating.
 
-#### What It Does
-
-- **Merges and re-ranks results** using:
-  - **Reciprocal Rank Fusion (RRF):** balances both semantic and keyword rankings
-  - **Maximum Marginal Relevance (MMR):** ensures diversity by penalizing redundant chunks
-- **Stitches adjacent chunks** for smoother context continuity
-- **Applies evidence thresholding** - if top results don't meet a confidence score, the system returns  
-  `"insufficient evidence"` instead of hallucinating an answer
-- **Preserves detailed retrieval metrics** in the final output:
-  - `semantic_score` → contextual similarity
-  - `keyword_score` → keyword overlap
-  - `combined_score` → hybrid weighted score
-  - `rrf` → rank fusion score
+Reranking details:
+- The LLM-based reranker (LLMReranker) can be toggled in constants.py to balance latency and precision.
+- Redundant chunks from the same region of a document are deprioritized to improve information diversity.
 
 ### 5. Generation
 
-This step uses the **Mistral AI** language model to generate grounded, evidence-based answers from the retrieved context.
+File: `app/query.py`
 
-#### What It Does
+Process:
+- Assemble a prompt using the final top‑k chunks and the user's question.
+- Call the Mistral API with conservative temperature settings for stable outputs.
+- Answer shaping: select templates based on intent (lists, comparisons, timelines) for structured responses.
+- Return citations for transparency and accountability.
+- Post‑hoc hallucination check: scan generated answers for unsupported claims and add warnings when a claim appears ungrounded.
 
-- Builds a structured prompt combining the user's question and the top-ranked context chunks
-- Calls the Mistral API (`mistral-small-latest`) to generate concise answers strictly based on that context
-- Enforces safety through:
-  - **Evidence check:** Returns "insufficient evidence" if context lacks support
-  - **Hallucination filter:** Flags unsupported claims (e.g., random URLs or figures)
-- Preserves citation details (`CHUNK IDs`) for full transparency
+Safety and reliability:
+- The system includes defensive prompt templates and retry logic for the Mistral API, ensuring factual grounding and graceful degradation in case of API errors.
 
-#### Example Output
-```json
-{
-  "intent": "kb",
-  "answer": "Overfitting occurs when...",
-  "citations": [
-    {"chunk": 23, "semantic_score": 0.135, "keyword_score": 0.025, "combined_score": 0.091, "rrf": 0.030}
-  ]
-}
-```
+### 6. Web UI
 
-## Setup
+Folder: `Frontend/static/`
 
-### Prerequisites
+- `index.html`: upload area, quick actions, and chat interface.
+- `style.css`: responsive layout with light and dark themes.
+- `script.js`: file upload, progress feedback, and chat interactions.
 
-- Python 3.8+
-- Mistral AI API key
+The UI supports drag‑and‑drop uploads, progress indicators, and a chat view with citations.
 
-### Installation
-
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd stackai_project
-```
-
-2. **Create virtual environment**
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. **Install dependencies**
-```bash
-pip install -r requirements.txt
-```
-
-4. **Set up environment variables**
-```bash
-# Create .env file
-echo "MISTRAL_API_KEY=your_mistral_api_key_here" > .env
-```
-
-### Mistral API Setup
-
-This step uses **Mistral AI** for generating answers from the retrieved context.  
-You need to create your own **Mistral API key** for this project.
-
-Before running the server, set your API key in the terminal:
-
-```bash
-export MISTRAL_API_KEY=your_key_here
-```
-
-#### Verify the Key
-
-Check if your Mistral API key is set correctly:
-
-```bash
-echo $MISTRAL_API_KEY
-```
-
-### Usage
-
-Start the FastAPI server:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Open the **Swagger UI** at:  
-[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
-Access the **Web Interface** at:  
-[http://127.0.0.1:8000](http://127.0.0.1:8000)
-
-Test the **`/query`** endpoint by entering a question after uploading PDFs.
+Frontend communication:
+- The frontend communicates with FastAPI endpoints via fetch() calls, handling both upload and query responses asynchronously.
+- The layout is responsive and keyboard-accessible, ensuring usability across devices.
 
 ## API Endpoints
 
-- `GET /` - Web interface
-- `GET /api` - API status
-- `POST /ingest` - Upload PDF files
-- `POST /query` - Query documents
+- `GET /` — Returns the web UI.
+- `GET /api` — Health/status.
+- `POST /ingest` — Multipart file upload for one or more PDFs.
+- `POST /query` — JSON body `{ "query": "..." }`; returns `{ intent, answer, citations }`.
 
-## Technology Stack
+Response format consistency:
+- All endpoints return JSON objects with clear schema definitions ({ intent, answer, citations }), supporting easy integration with other clients.
 
-- **Backend**: FastAPI, Python
-- **PDF Processing**: PyMuPDF (fitz)
-- **Embeddings**: Custom TF-IDF + Word Embeddings
-- **LLM**: Mistral AI API
-- **Frontend**: HTML, CSS, JavaScript
-- **Storage**: JSON + NumPy arrays
+## Technologies Used
 
-## Project Structure
+- FastAPI, Uvicorn — API and ASGI server
+- PyMuPDF (fitz) — PDF text extraction
+- NumPy, scikit‑learn — vector math and TF‑IDF utilities
+- Requests — Mistral API integration
+
+Version requirements:
+- Python 3.11+, FastAPI 0.110+, Uvicorn 0.29+
+- For local deployment: uvicorn app.main:app --reload
+
+Design compliance:
+- No external RAG frameworks (LangChain, LlamaIndex, etc.) or vector databases (FAISS, Chroma, Pinecone) were used.
+
+## File Structure
 
 ```
 stackai_project/
-├── app/                    # Backend modules
-│   ├── main.py            # FastAPI application
-│   ├── ingestion.py       # PDF processing
-│   ├── query.py          # RAG pipeline
-│   ├── embeddings.py     # Custom embeddings
-│   ├── reranker.py       # LLM reranking
-│   ├── store.py          # Data persistence
-│   └── utils_text.py     # Text utilities
-├── Frontend/static/       # UI components
-│   ├── index.html        # Main interface
-│   ├── script.js         # JavaScript
-│   └── style.css         # Styling
-├── data/                  # Generated data
-├── constants.py          # Configuration
-├── settings.py           # Environment variables
-└── requirements.txt      # Dependencies
+├── app/
+│   ├── main.py            # FastAPI app and routes
+│   ├── ingestion.py       # PDF extraction, cleaning, chunking, embeddings, persist
+│   ├── query.py           # Retrieval pipeline, intent, post‑processing, generation
+│   ├── embeddings.py      # Custom TF‑IDF and word embeddings
+│   ├── reranker.py        # Optional LLM‑based reranker
+│   ├── store.py           # Save/load chunks JSON and NumPy embeddings
+│   └── utils_text.py      # Cleaning and chunking utilities
+├── Frontend/static/
+│   ├── index.html         # Web UI
+│   ├── style.css          # Styles and themes
+│   └── script.js          # Client‑side logic
+├── data/
+│   ├── chunks_metadata.json
+│   └── vector_index.npy
+├── constants.py           # Tunable parameters and thresholds
+├── settings.py            # Environment variables (Mistral key)
+└── requirements.txt       # Dependencies
 ```
 
-## Contributing
+## Running the System
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+Prerequisites:
+- Python 3.8 or newer
+- Mistral API key
 
-## License
+Setup:
+```
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 
-This project is licensed under the MIT License.
+# .env file or shell export
+MISTRAL_API_KEY=your_mistral_api_key
+```
+
+Start the server:
+```
+uvicorn app.main:app --reload
+```
+
+Open in a browser:
+```
+http://127.0.0.1:8000
+```
+
+Interactive API docs:
+```
+http://127.0.0.1:8000/docs
+```
+
+## Example Usage
+
+Upload PDFs:
+```
+curl -X POST "http://127.0.0.1:8000/ingest" \
+  -F "files=@document1.pdf" \
+  -F "files=@document2.pdf"
+```
+
+Query the knowledge base:
+```
+curl -X POST "http://127.0.0.1:8000/query" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What are the key points?"}'
+```
+
+## Configuration and Tunables
+
+See `constants.py` for:
+- Chunk size and overlap
+- Candidate counts for multi‑stage retrieval
+- Hybrid scoring weights and thresholds
+- LLM reranking toggles and weights
+
+See `settings.py` for environment variables. Required: `MISTRAL_API_KEY`.
+
+## Error Handling and Safety
+
+- Validation for empty or malformed queries
+- Per‑file error handling in ingestion with clear messages
+- Friendly responses for Mistral API rate limits and network errors
+- Evidence thresholding and refusal when context support is insufficient
+- Post‑hoc scanning for unsupported claims in generated answers
+
+## Constraints and Tradeoffs
+
+- No external RAG frameworks and no vector databases to keep the pipeline explicit and compliant with assignment constraints.
+- Character‑based chunking is simple and robust but can split semantic units; overlap mitigates this.
+- NumPy storage is lightweight but may need sharding for very large corpora.
+
+## Bonus Features Implemented
+
+- No third‑party vector database (NumPy storage).
+- Citations required and refusal on low similarity.
+- Intent‑aware answer shaping and structured outputs.
+- Hallucination filters and post‑hoc evidence checks.
+- Optional LLM‑based reranking to refine top‑k.
+
+## File Structure Diagram
+
+```
+stackai_project/
+├── app/
+│   ├── main.py            # FastAPI app: mounts UI, defines /ingest and /query
+│   ├── ingestion.py       # PDF -> text -> clean -> chunk -> embed -> persist
+│   ├── query.py           # Intent, retrieval, post-processing, generation
+│   ├── embeddings.py      # Custom TF-IDF + lightweight word embeddings
+│   ├── reranker.py        # Optional LLM-based reranking (query-time)
+│   ├── store.py           # save/load chunks JSON and NumPy embeddings
+│   └── utils_text.py      # clean_text, chunk_text
+├── Frontend/
+│   └── static/
+│       ├── index.html     # Upload UI + chat interface
+│       ├── style.css      # Layout, themes, animations
+│       └── script.js      # Upload logic, progress, chat, theme toggle
+├── data/
+│   ├── chunks_metadata.json
+│   └── vector_index.npy
+├── constants.py           # Tunable parameters (chunking, weights, thresholds)
+├── settings.py            # Environment variables (MISTRAL_API_KEY)
+└── requirements.txt
+```
+
+### Request Flows (end-to-end)
+
+Ingestion (PDF upload to persistent store):
+
+```
+[Browser]
+  index.html + script.js
+      │  (multipart/form-data)
+      ▼
+  POST /ingest
+      │
+      ▼
+  app/main.py               # endpoint handler
+      ▼
+  app/ingestion.py          # process_pdfs(files)
+      ├─ PyMuPDF (fitz)     # extract text
+      ├─ utils_text.py      # clean_text, chunk_text
+      ├─ embeddings.py      # EmbeddingGenerator.fit/encode
+      └─ store.py           # save_chunks_and_vectors -> data/
+```
+
+Query (question to grounded answer with citations):
+
+```
+[Browser]
+  index.html + script.js
+      │  (JSON: { query })
+      ▼
+  POST /query
+      │
+      ▼
+  app/main.py               # endpoint handler
+      ▼
+  app/query.py              # answer_query(user_query)
+      ├─ Intent detection   # avoid retrieval for greetings, shape response
+      ├─ Query transform    # normalize/expand
+      ├─ Retrieval          # hybrid semantic+keyword scoring
+      ├─ Post-processing    # thresholds, diversity, top-k selection
+      ├─ reranker.py        # (optional) LLM-based reranking
+      ├─ Prompt build       # assemble context window
+      ├─ Mistral call       # generation via API
+      └─ Citations & checks # evidence threshold, hallucination scan
+```
+
+### Module Responsibilities at a Glance
+
+- `app/main.py`: HTTP surface, static hosting, request validation, error mapping
+- `app/ingestion.py`: PDF extraction pipeline and persistence
+- `app/utils_text.py`: deterministic cleaning and overlapping chunking
+- `app/embeddings.py`: custom TF-IDF features and word embeddings
+- `app/store.py`: JSON/NumPy storage (no vector DB)
+- `app/query.py`: intent, retrieval, reranking hook, prompt assembly, generation, guardrails
+- `app/reranker.py`: LLM-assisted reranking to refine final ordering
+- `Frontend/static/*`: user interface; upload and chat interactions
+
+### Data Artifacts
+
+- `data/chunks_metadata.json`: chunk text + metadata (filename, positions, sizes)
+- `data/vector_index.npy`: float32 embedding matrix aligned with chunks order
+
+This diagram mirrors the code and clarifies exactly where each responsibility lives, how requests traverse the system, and which files produce which artifacts.
