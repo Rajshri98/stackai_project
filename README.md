@@ -78,6 +78,8 @@ Reranking details:
 - The LLM-based reranker (LLMReranker) can be toggled in constants.py to balance latency and precision.
 - Redundant chunks from the same region of a document are deprioritized to improve information diversity.
 
+![Retrieval and Reranking Pipeline](retrieval_reranking_pipeline.png)
+
 ### 5. Generation
 
 File: `app/query.py`
