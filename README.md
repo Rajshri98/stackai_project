@@ -78,7 +78,7 @@ Reranking details:
 - The LLM-based reranker (LLMReranker) can be toggled in constants.py to balance latency and precision.
 - Redundant chunks from the same region of a document are deprioritized to improve information diversity.
 
-![Retrieval and Reranking Pipeline](retrieval_reranking_pipeline.png)
+![Retrieval and Reranking Pipeline](4.Reranking%20.png)
 
 ### 5. Generation
 
@@ -93,6 +93,8 @@ Process:
 
 Safety and reliability:
 - The system includes defensive prompt templates and retry logic for the Mistral API, ensuring factual grounding and graceful degradation in case of API errors.
+
+![Generation and Safety Pipeline](5.Generation.png)
 
 ### 6. Web UI
 
