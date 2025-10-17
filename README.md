@@ -36,6 +36,8 @@ Chunking considerations:
 - Overlap reduces the risk of splitting related facts across boundaries.
 - Each chunk includes filename and positional metadata for traceability and citation.
 
+![Data Ingestion Pipeline](1.dataingestion.png)
+
 ### 2. Query Processing
 
 File: `app/query.py`
@@ -46,7 +48,9 @@ Objectives:
 
 Implemented elements:
 - Lightweight intent classifier with categories such as greeting, clarification, list, comparison, timeline, skills, experience, education, contact, kb.
-- Query normalization and pattern‑guided transformations (for example “what is X” becomes “X definition explanation information”).
+- Query normalization and pattern‑guided transformations (for example "what is X" becomes "X definition explanation information").
+
+![Query Processing Pipeline](2.queryprocess.png)
 
 ### 3. Semantic Search (Hybrid)
 
@@ -63,6 +67,8 @@ Combination:
 Storage model:
 - No external vector database. Embeddings are stored as a NumPy array on disk for simplicity and assignment compliance.
 - Embeddings are serialized with NumPy for fast disk I/O and deterministic retrieval between sessions.
+
+![Semantic Search Pipeline](3.semanticsearch.png)
 
 ### 4. Reranking and Post‑processing
 
