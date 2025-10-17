@@ -3,7 +3,7 @@ let uploadedFiles = [];
 let isUploading = false;
 let chatMessages = [];
 
-// DOM elements )
+// DOM elements
 let fileInput;
 let uploadArea;
 let uploadBtn;

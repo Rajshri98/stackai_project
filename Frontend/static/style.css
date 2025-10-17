@@ -122,7 +122,6 @@
     color: #ffffff !important;
 }
 
-/* Reset and base styles */
 * {
     margin: 0;
     padding: 0;
@@ -146,8 +145,6 @@ body {
 
 /* Layout */
 .main-layout { display:grid; grid-template-columns: 1fr 1fr; gap:3rem; margin-bottom:3rem; }
-
-/* Original layout restored */
 
 /* Sections */
 .upload-section, .quick-actions, .chat-section { background: var(--surface); border-radius: 16px; padding: 2.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid var(--border); position:relative; }
@@ -180,7 +177,6 @@ body {
 .message.user{ background: var(--text); color:#fff; margin-left:2rem; }
 .message.assistant{ background: var(--surface); border:1px solid var(--border); margin-right:2rem; color: var(--text); }
 
-/* Removed duplicate rules */
 
 /* Floating elements from provided UI */
 .floating-elements{ position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:-1; overflow:hidden; }

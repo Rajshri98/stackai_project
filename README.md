@@ -112,6 +112,8 @@ Folder: `Frontend/static/`
 
 The UI supports drag‑and‑drop uploads, progress indicators, and a chat view with citations.
 
+The UI includes light and dark mode support with a theme toggle button.
+
 Frontend communication:
 - The frontend communicates with FastAPI endpoints via fetch() calls, handling both upload and query responses asynchronously.
 - The layout is responsive and keyboard-accessible, ensuring usability across devices.
